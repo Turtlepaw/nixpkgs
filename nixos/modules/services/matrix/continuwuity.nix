@@ -11,6 +11,14 @@ let
 
   format = pkgs.formats.toml { };
   configFile = format.generate "continuwuity.toml" cfg.settings;
+
+  conduwuitWrapper =
+    let
+      cfgSystemd = config.systemd.services.continuwuity.serviceConfig;
+    in
+    pkgs.writeShellScriptBin "conduwuit" ''
+      exec ${lib.getExe cfg.package} --config ${configFile} "$@"
+    '';
 in
 {
   meta.maintainers = with lib.maintainers; [
@@ -169,9 +177,22 @@ in
         for details on supported values.
       '';
     };
+
+    admin = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = cfg.enable;
+        defaultText = lib.literalExpression "config.services.matrix-continuwuity.enable";
+        description = "Add conduwuit command to PATH for administration";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
+    environment = lib.mkIf cfg.admin.enable {
+      systemPackages = [ conduwuitWrapper ];
+    };
+
     assertions = [
       {
         assertion = !(cfg.settings ? global.unix_socket_path) || !(cfg.settings ? global.address);
@@ -271,3 +292,4 @@ in
     };
   };
 }
+  
